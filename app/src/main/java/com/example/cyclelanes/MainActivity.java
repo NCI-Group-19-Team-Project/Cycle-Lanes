@@ -195,6 +195,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.getUiSettings().setZoomControlsEnabled(true);
         mMap.getUiSettings().setAllGesturesEnabled(true);
 
+
+
     }
 
     private void getCycleLaneData() {
@@ -349,14 +351,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         routeCoordinates.add(point);
                     }
 
-                    double routeLat=routeCoordinates.get(i).latitude;
+                    /*double routeLat=routeCoordinates.get(i).latitude;
                     double routeLng=routeCoordinates.get(i).longitude;
 
                     for(int j=0;j<jsonBikeLanes.size();j++){
                         double jsonLat=jsonBikeLanes.get(j).latitude;
                         double jsonLng=jsonBikeLanes.get(j).longitude;
 
-                    }
+                    }*/
 
 
 
@@ -367,10 +369,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
 
-            getCycleLaneData();
+            //getCycleLaneData();
+            //findCycleLanesOnRoute();
 
             Log.i(TAG, "coordinates: "+routeCoordinates);
             Log.i(TAG, "coordinates: "+routeCoordinates.get(0));
+
 
             mMap.moveCamera(CameraUpdateFactory.newLatLng(route.get(0).getLatLgnBounds().getCenter()));
             LatLngBounds.Builder builder = new LatLngBounds.Builder();
@@ -392,6 +396,17 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             mMap.addMarker(endMarker);
         }catch(Exception e){
 
+        }
+    }
+
+    private void findCycleLanesOnRoute() {
+        JSONObject coordinateObj=new JSONObject();
+
+
+        for(int i=0;i<routeCoordinates.size();i++){
+            if((routeCoordinates.get(i).latitude == jsonBikeLanes.get(i).latitude) && (routeCoordinates.get(i).longitude == jsonBikeLanes.get(i).longitude)){
+
+            }
         }
     }
 
