@@ -260,8 +260,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
                     for(int k=0;k<mutliCoordinates.length();k++){
                         latLngCoordinates= (JSONArray) mutliCoordinates.get(k);
-                        lat = (double) latLngCoordinates.get(0);
-                        lng = (double) latLngCoordinates.get(1);
+                        lat = (double) latLngCoordinates.get(1);
+                        lng = (double) latLngCoordinates.get(0);
                         bikeLaneCoordinates=new LatLng(lat,lng);
                         jsonBikeLanes.add(bikeLaneCoordinates);//add to arraylist of json coordinates
 
@@ -272,8 +272,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
                 for(int j=0;j<coordinates.length();j++){
                     latLngCoordinates= (JSONArray) coordinates.get(j);
-                    lat = (double) latLngCoordinates.get(0);
-                    lng = (double) latLngCoordinates.get(1);
+                    lat = (double) latLngCoordinates.get(1);
+                    lng = (double) latLngCoordinates.get(0);
                     bikeLaneCoordinates=new LatLng(lat,lng);
                     jsonBikeLanes.add(bikeLaneCoordinates);//add to arraylist of json coordinates
 
@@ -411,7 +411,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             endMarker.title("Destination");
             mMap.addMarker(endMarker);
 
-            getCycleLaneData();
+            //getCycleLaneData();
             findCycleLanesOnRoute();
 
 
@@ -424,7 +424,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         JSONObject cycleLanesObject = new JSONObject();//stores the whole object
         JSONArray coordinatesArray = new JSONArray();
 
-        /*for(int i=0;i<jsonBikeLanes.size();i++){
+        /*for(int i=0;i<jsonBikeLanes.size()/5;i++){
             JSONArray coordinates = new JSONArray();
             coordinates.put(jsonBikeLanes.get(i).latitude);
             coordinates.put(jsonBikeLanes.get(i).longitude);
@@ -437,20 +437,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 double routeLng=routeCoordinates.get(i).longitude;
                 double laneLat=jsonBikeLanes.get(j).latitude;
                 double laneLng=jsonBikeLanes.get(j).longitude;
-                if((routeLat >= (laneLat - 0.5) && routeLat <= (laneLat + 0.5)) && (routeLng >= (laneLng - 0.5) && routeLng <= (laneLng + 0.5))){
+                if((routeLat >= (laneLat - 0.05) && routeLat <= (laneLat + 0.05)) && (routeLng >= (laneLng - 0.05) && routeLng <= (laneLng + 0.05))){
                     JSONArray coordinates = new JSONArray();
                     coordinates.put(laneLat);
                     coordinates.put(laneLng);
                     coordinatesArray.put(coordinates);
                 }
+                else{
+
+                }
             }
         }
 
-        double lat=jsonBikeLanes.get(0).latitude;
-        double latAdd=jsonBikeLanes.get(0).latitude + 0.5;
-        Log.i(TAG, "findCycleLanesOnRoute: "+routeCoordinates.get(0));
-        Log.i(TAG, "findCycleLanesOnRoute: "+lat);
-        Log.i(TAG, "findCycleLanesOnRoute: "+(latAdd));
+        //Log.i(TAG, "findCycleLanesOnRoute: "+routeCoordinates.toString());
+        //Log.i(TAG, "findCycleLanesOnRoute: "+jsonBikeLanes.toString());
 
         JSONObject geometryObj = new JSONObject();
         geometryObj.put("type","LineString");
@@ -468,7 +468,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         Log.i(TAG, "findCycleLanesOnRoute: "+cycleLanesObject.toString());
 
-
+        /*GeoJsonLayer layer=new GeoJsonLayer(mMap, cycleLanesObject);
+        GeoJsonLineStringStyle lineStringStyle = layer.getDefaultLineStringStyle();
+        lineStringStyle.setColor(Color.RED);
+        lineStringStyle.setPolygonStrokeWidth(2);
+        layer.addLayerToMap();*/
 
     }
 
