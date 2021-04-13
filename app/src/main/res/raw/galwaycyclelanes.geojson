@@ -1132,15 +1132,6 @@
       }
     },
     {
-      "type": "Feature",
-      "properties": {
-        "OBJECTID": 14,
-        "MGID": 16,
-        "Cycle_Lane": "South Park",
-        "Length_KM": 0.63951598889,
-        "Type": " ",
-        "GlobalID": "41430004-9227-4ac9-bac0-b414460d10d3"
-      },
       "geometry": {
         "type": "MultiLineString",
         "coordinates": [
