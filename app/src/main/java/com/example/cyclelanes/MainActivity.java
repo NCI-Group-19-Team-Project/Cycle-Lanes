@@ -1,14 +1,14 @@
 package com.example.cyclelanes;
 /*
-*
-*
-*
-*
-*
-*
-*
-*
-* */
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ * */
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
@@ -23,6 +23,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.SearchView;
 import android.widget.Toast;
 
@@ -54,6 +55,7 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import java.io.BufferedReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -71,13 +73,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     //data members
     private GoogleMap mMap;//GoogleMap Object
     SearchView searchView;
+    Button searchBtn;
 
     //current and destination location objects
     Location myLocation = null;//used to store location of device
     Location destinationLocation = null;
     protected LatLng start = null;//coordinates of start
     protected LatLng end = null;//coordinates of end
-    protected LatLng setMapStart=null;
+    protected LatLng setMapStart = null;
 
     //to get location permissions.
     private final static int LOCATION_REQUEST_CODE = 23;//used for location permission
@@ -88,8 +91,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private List<Address> addressList = null;//stores address for geocoder object
 
     //routeCoordinates array
-    private List<LatLng> routeCoordinates=null;
-    private List<LatLng> jsonBikeLanes=null;
+    private List<LatLng> routeCoordinates = null;
+    private List<LatLng> jsonBikeLanes = null;
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -99,14 +102,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);//R is used to locate files in the res folder such as XML, JSON and other text formats
 
-
         requestPermision();//calls method to request location data
 
         //initialise the google map
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);//gets the map fragment from the activity_main.xml. It then uses R to locate the ID of the fragment which looks like "android:id="@+id/map" in the file
         mapFragment.getMapAsync(this);//calls the map Object
-
 
     }
 
@@ -152,27 +153,29 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onMyLocationChange(Location location) {//uses method in the google map api to track changes in location
 
-                myLocation=location;
-                LatLng ltlng=new LatLng(location.getLatitude(),location.getLongitude());
+                myLocation = location;
+                LatLng ltlng = new LatLng(location.getLatitude(), location.getLongitude());
 
 
-
+                //mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(ltlng, 10));
             }
 
         });
+
 
         //when the user clicks on an are on the map, set the end latlng to the coordinates that the user clicked
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
 
-                end=latLng;
+                end = latLng;
 
                 mMap.clear();
 
-                start=new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
-                //start route finding
-                Findroutes(start,end);//calls FindRoutes method to calculate route using the start as the user location and the end as the area that the user clicked
+                //start=new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
+                start = new LatLng(53.27066685951774, -9.05680221445256);//for testing purposes
+
+                Findroutes(start, end);//calls FindRoutes method to calculate route using the start as the user location and the end as the area that the user clicked
             }
         });
 
@@ -180,13 +183,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }//end getMyLocation()
 
 
-
-
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
         getMyLocation();
+        centerMapOnLocation();
         getCycleLaneData();
 
         try {
@@ -212,6 +214,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }*/
 
     }
+
+    private void centerMapOnLocation() {
+
+    }
+
 
     private void getCycleLaneData() {
         try {
@@ -420,59 +427,82 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    private void findCycleLanesOnRoute() throws JSONException {
-        JSONObject cycleLanesObject = new JSONObject();//stores the whole object
-        JSONArray coordinatesArray = new JSONArray();
+    private void findCycleLanesOnRoute() throws JSONException, ParseException {
+        double routeLat=0;
+        double routeLng=0;
+        double laneLat=0;
+        double laneLng=0;
 
-        /*for(int i=0;i<jsonBikeLanes.size()/5;i++){
-            JSONArray coordinates = new JSONArray();
+        JSONObject cycleLanesObject;//stores the whole object
+        JSONArray coordinatesArray;
+        JSONArray coordinates;
+        JSONObject geometryObj;
+        JSONObject featuresObj;
+        JSONArray featuresArray;
+
+        /*for(int i=0;i<5;i++){
+            coordinates = new JSONArray();
             coordinates.put(jsonBikeLanes.get(i).latitude);
             coordinates.put(jsonBikeLanes.get(i).longitude);
             coordinatesArray.put(coordinates);
         }*/
 
+        int count=0;
+        featuresArray = new JSONArray();
+        coordinatesArray = new JSONArray();
         for(int i=0;i<routeCoordinates.size();i++){
             for(int j=0;j<jsonBikeLanes.size();j++){
-                double routeLat=routeCoordinates.get(i).latitude;
-                double routeLng=routeCoordinates.get(i).longitude;
-                double laneLat=jsonBikeLanes.get(j).latitude;
-                double laneLng=jsonBikeLanes.get(j).longitude;
-                if((routeLat >= (laneLat - 0.05) && routeLat <= (laneLat + 0.05)) && (routeLng >= (laneLng - 0.05) && routeLng <= (laneLng + 0.05))){
-                    JSONArray coordinates = new JSONArray();
+                routeLat=routeCoordinates.get(i).latitude;
+                routeLng=routeCoordinates.get(i).longitude;
+                laneLat=jsonBikeLanes.get(j).latitude;
+                laneLng=jsonBikeLanes.get(j).longitude;
+
+                if((routeLat >= (laneLat - 0.0001) && routeLat <= (laneLat + 0.0001)) && (routeLng >= (laneLng - 0.0001) && routeLng <= (laneLng + 0.0001))){
+                    count++;
+                    coordinates = new JSONArray();
                     coordinates.put(laneLat);
                     coordinates.put(laneLng);
                     coordinatesArray.put(coordinates);
-                }
-                else{
+                }else{
+                    if(count > 0){
+                        geometryObj = new JSONObject();
+                        geometryObj.put("type","LineString");
+                        geometryObj.put("coordinates",coordinatesArray);
+
+                        featuresObj = new JSONObject();
+                        featuresObj.put("type","Feature");
+                        featuresObj.put("geometry",geometryObj);
+                        featuresArray.put(featuresObj);
+
+                        count=0;
+                    }
 
                 }
+
             }
         }
 
-        //Log.i(TAG, "findCycleLanesOnRoute: "+routeCoordinates.toString());
-        //Log.i(TAG, "findCycleLanesOnRoute: "+jsonBikeLanes.toString());
 
-        JSONObject geometryObj = new JSONObject();
+        /*geometryObj = new JSONObject();
         geometryObj.put("type","LineString");
         geometryObj.put("coordinates",coordinatesArray);
-
-        JSONObject featuresObj = new JSONObject();
-        JSONArray featuresArray = new JSONArray();
+        featuresObj = new JSONObject();
+        featuresArray = new JSONArray();
         featuresObj.put("type","Feature");
         featuresObj.put("geometry",geometryObj);
-        featuresArray.put(featuresObj);
+        featuresArray.put(featuresObj);*/
 
+        cycleLanesObject = new JSONObject();
         cycleLanesObject.put("type","FeatureCollection");
         cycleLanesObject.put("features",featuresArray);
 
-
         Log.i(TAG, "findCycleLanesOnRoute: "+cycleLanesObject.toString());
 
-        /*GeoJsonLayer layer=new GeoJsonLayer(mMap, cycleLanesObject);
+        GeoJsonLayer layer=new GeoJsonLayer(mMap, cycleLanesObject);
         GeoJsonLineStringStyle lineStringStyle = layer.getDefaultLineStringStyle();
         lineStringStyle.setColor(Color.RED);
         lineStringStyle.setPolygonStrokeWidth(2);
-        layer.addLayerToMap();*/
+        layer.addLayerToMap();
 
     }
 
