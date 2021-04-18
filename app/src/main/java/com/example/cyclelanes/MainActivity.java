@@ -41,6 +41,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.internal.ICameraUpdateFactoryDelegate;
+import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -95,7 +96,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     //routeCoordinates array
     private List<LatLng> routeCoordinates = null;
-    private List<LatLng> jsonBikeLanes = null;
+    private List<BikeLanesObject> jsonBikeLanes = null;
+    private List<BikeLanesObject> laneCoordiantes= null;
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -210,7 +212,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng latlng=new LatLng(53.3330556,-6.2488889);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latlng, 14));
 
-
+        Log.i(TAG, "onCameraMove: "+ mMap.getProjection().getVisibleRegion().latLngBounds);
 
     }
 
@@ -258,12 +260,19 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         for(int i=0;i<features.length();i++){
             JSONObject position =(JSONObject) features.get(i);
+
+            JSONObject properties= (JSONObject) position.get("properties");
+            int objectID= (int) properties.get("OBJECTID");
+
             JSONObject geometry= (JSONObject) position.get("geometry");
+
             JSONArray coordinates=geometry.getJSONArray("coordinates");
             String type= (String) geometry.get("type");
 
 
             JSONArray latLngCoordinates;
+
+            BikeLanesObject bikeLanesObject;
 
             if(type.equals("MultiLineString")){
 
@@ -275,7 +284,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         lat = (double) latLngCoordinates.get(1);
                         lng = (double) latLngCoordinates.get(0);
                         bikeLaneCoordinates=new LatLng(lat,lng);
-                        jsonBikeLanes.add(bikeLaneCoordinates);//add to arraylist of json coordinates
+                        bikeLanesObject=new BikeLanesObject(objectID, bikeLaneCoordinates);
+                        jsonBikeLanes.add(bikeLanesObject);
 
                     }
                     count++;
@@ -288,14 +298,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     lat = (double) latLngCoordinates.get(1);
                     lng = (double) latLngCoordinates.get(0);
                     bikeLaneCoordinates=new LatLng(lat,lng);
-                    jsonBikeLanes.add(bikeLaneCoordinates);//add to arraylist of json coordinates
+                    bikeLanesObject=new BikeLanesObject(objectID, bikeLaneCoordinates);
+                    jsonBikeLanes.add(bikeLanesObject);
 
                 }
                 count++;
             }
 
         }
-        Log.i(TAG, "parseJSONData: "+jsonBikeLanes.toString());
+        Log.i(TAG, "parseJSONData: "+jsonBikeLanes.get(jsonBikeLanes.size()-1).objectID);
         Log.i(TAG, "parseJSONData: count: "+count);
         Log.i(TAG, "parseJSONData: array: "+jsonBikeLanes.size());
     }
@@ -372,7 +383,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
                 if (i == shortestRouteIndex) {
                     polyOptions.color(getResources().getColor(R.color.colorPrimary));
-                    polyOptions.width(7);
+                    polyOptions.width(10);
                     polyOptions.addAll(route.get(shortestRouteIndex).getPoints());
                     Polyline polyline = mMap.addPolyline(polyOptions);
                     polylineStartLatLng = polyline.getPoints().get(0);
@@ -408,7 +419,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             LatLngBounds.Builder builder = new LatLngBounds.Builder();
 
             //get furthest north point
-            double northLat, furthestNorth=0;
+            /*double northLat, furthestNorth=0;
             for(int i=0;i<routeCoordinates.size();i++){
                 northLat=routeCoordinates.get(i).latitude;
                 if(northLat>furthestNorth){
@@ -449,9 +460,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 }else{
                     furthestWest=furthestWest;
                 }
-            }
+            }*/
 
-            
+
 
             builder.include(polylineStartLatLng);
             builder.include(polylineEndLatLng);
@@ -471,6 +482,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             mMap.addMarker(endMarker);
 
             Log.i(TAG, "onRoutingSuccess: bounds: "+bounds);
+            Log.i(TAG, "findCycleLanesOnRoute: routeCoordinates: "+routeCoordinates.toString());
+            Log.i(TAG, "findCycleLanesOnRoute: routeCoordinates: "+routeCoordinates.size());
 
             findCycleLanesOnRoute();
 
@@ -488,9 +501,90 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         JSONObject featuresObj;
         JSONArray featuresArray;
 
+        double currentLat, currentLng, nextLat, nextLng;
+        LatLng currentPoint = null;
+        LatLng nextPoint=null;
+
+        double routeBearing;
+        
+        double bikeLat, bikeLng;
+        LatLng bikeLane;
+        int objectID, count;
+        BikeLanesObject laneObject;
+
+        ArrayList<BikeLanesObject>  duplicateList=new ArrayList<>();
+        laneCoordiantes=new ArrayList<>();
+
+        for(int i=0;i<routeCoordinates.size();i++){
+            currentLat=routeCoordinates.get(i).latitude;
+            currentLng=routeCoordinates.get(i).longitude;
+            currentPoint=new LatLng(currentLat,currentLng);
+
+            nextLat=routeCoordinates.get(i+1).latitude;
+            nextLng=routeCoordinates.get(i+1).longitude;
+            nextPoint=new LatLng(nextLat,nextLng);
+
+            routeBearing=findRouteBearing(currentPoint, nextPoint);
+            Log.i(TAG, "findCycleLanesOnRoute: bearing: "+routeBearing);
+
+
+            count=0;
+
+            for(int j=0;j<jsonBikeLanes.size();j++){
+                bikeLat=jsonBikeLanes.get(j).coordinates.latitude;
+                bikeLng=jsonBikeLanes.get(j).coordinates.longitude;
+                bikeLane=new LatLng(bikeLat, bikeLng);
+                objectID=jsonBikeLanes.get(j).objectID;
+                laneObject=new BikeLanesObject(objectID, bikeLane);
+                count++;
+
+                //if statement to find matches
+                if(routeBearing>=0 && routeBearing<=90){
+                    if((bikeLat>=currentLat && bikeLat<=nextLat) && (bikeLng>=currentLng && bikeLng<=nextLng)){
+                        duplicateList.add(laneObject);
+                    }
+                }
+                else if(routeBearing>90 && routeBearing<=180){
+                    if((bikeLat<=currentLat && bikeLat>=nextLat) && (bikeLng>=currentLng && bikeLng<=nextLng)){
+                        duplicateList.add(laneObject);
+                    }
+                }
+                else if(routeBearing>180 && routeBearing<=270){
+                    if((bikeLat<=currentLat && bikeLat>=nextLat) && (bikeLng<=currentLng && bikeLng>=nextLng)){
+                        duplicateList.add(laneObject);
+                    }
+                }
+                else if(routeBearing>270 && routeBearing<=360){
+                    if((bikeLat>=currentLat && bikeLat<=nextLat) && (bikeLng<=currentLng && bikeLng>=nextLng)){
+                        duplicateList.add(laneObject);
+                    }
+                }
+                else{
+
+                }
+            }
+        }
 
 
 
+        Log.i(TAG, "findCycleLanesOnRoute: laneCoordinates: "+laneCoordiantes);
+
+    }
+
+    private double findRouteBearing(LatLng startLatLng, LatLng endLatLng) {
+        double startLat=startLatLng.latitude;
+        double startLng=startLatLng.longitude;
+        double endLat=endLatLng.latitude;
+        double endLng=endLatLng.longitude;
+
+        double startLatRad=Math.toRadians(startLat);
+        double endLatRad=Math.toRadians(endLat);
+        double lngDiff=Math.toRadians(endLng-startLng);
+
+        double y=Math.sin(lngDiff)*Math.cos(endLatRad);
+        double x=Math.cos(startLatRad)*Math.sin(endLatRad)-Math.sin(startLatRad)*Math.cos(endLatRad)*Math.cos(lngDiff);
+
+        return (Math.toDegrees(Math.atan2(y, x))+360)%360;
     }
 
     @Override
