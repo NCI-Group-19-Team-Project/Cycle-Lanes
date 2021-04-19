@@ -23,7 +23,6 @@ import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.SearchView;
 import android.widget.Toast;
@@ -40,8 +39,6 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.internal.ICameraUpdateFactoryDelegate;
-import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -54,11 +51,9 @@ import com.google.maps.android.data.geojson.GeoJsonLineStringStyle;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import java.io.BufferedReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -68,7 +63,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.example.cyclelanes.R.raw.dublinbikelanes;
-import static com.example.cyclelanes.R.raw.galwaycyclelanes;
 
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback,
@@ -97,7 +91,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     //routeCoordinates array
     private List<LatLng> routeCoordinates = null;
     private List<BikeLanesObject> jsonBikeLanes = null;
-    private List<BikeLanesObject> laneCoordiantes= null;
+    private List<Integer> laneObjectID = null;
+    private List<LatLng> laneCoordiantes= null;
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -494,12 +489,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void findCycleLanesOnRoute() throws JSONException, ParseException {
-        JSONObject cycleLanesObject;//stores the whole object
-        JSONArray coordinatesArray;
-        JSONArray coordinates;
-        JSONObject geometryObj;
-        JSONObject featuresObj;
-        JSONArray featuresArray;
 
         double currentLat, currentLng, nextLat, nextLng;
         LatLng currentPoint = null;
@@ -512,8 +501,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         int objectID, count;
         BikeLanesObject laneObject;
 
-        ArrayList<BikeLanesObject>  duplicateList=new ArrayList<>();
-        laneCoordiantes=new ArrayList<>();
+        laneObjectID=new ArrayList<Integer>();
+
 
         for(int i=0;i<routeCoordinates.size();i++){
             currentLat=routeCoordinates.get(i).latitude;
@@ -541,22 +530,22 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 //if statement to find matches
                 if(routeBearing>=0 && routeBearing<=90){
                     if((bikeLat>=currentLat && bikeLat<=nextLat) && (bikeLng>=currentLng && bikeLng<=nextLng)){
-                        duplicateList.add(laneObject);
+                        findBikeLane(objectID);
                     }
                 }
                 else if(routeBearing>90 && routeBearing<=180){
                     if((bikeLat<=currentLat && bikeLat>=nextLat) && (bikeLng>=currentLng && bikeLng<=nextLng)){
-                        duplicateList.add(laneObject);
+                        findBikeLane(objectID);
                     }
                 }
                 else if(routeBearing>180 && routeBearing<=270){
                     if((bikeLat<=currentLat && bikeLat>=nextLat) && (bikeLng<=currentLng && bikeLng>=nextLng)){
-                        duplicateList.add(laneObject);
+                        findBikeLane(objectID);
                     }
                 }
                 else if(routeBearing>270 && routeBearing<=360){
                     if((bikeLat>=currentLat && bikeLat<=nextLat) && (bikeLng<=currentLng && bikeLng>=nextLng)){
-                        duplicateList.add(laneObject);
+                        findBikeLane(objectID);
                     }
                 }
                 else{
@@ -565,9 +554,62 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         }
 
-
+        laneCoordinatesToJson();
 
         Log.i(TAG, "findCycleLanesOnRoute: laneCoordinates: "+laneCoordiantes);
+
+    }
+
+    private List<Integer> findBikeLane(double objectID) {
+        for(int i=0;i<jsonBikeLanes.size();i++){
+            if(jsonBikeLanes.get(i).objectID==objectID){
+                for(int j=0;j<laneObjectID.size();j++){
+                    if(laneObjectID.size()==0){
+                        laneObjectID.add(jsonBikeLanes.get(i).objectID);
+                    }else{
+                        if(objectID != laneObjectID.get(i)){
+                            laneObjectID.add(jsonBikeLanes.get(i).objectID);
+                        }
+                    }
+                }
+
+            }
+        }
+        return laneObjectID;
+    }
+
+    private void laneCoordinatesToJson() throws JSONException {
+        JSONObject cycleLanesObject;//stores the whole object
+        JSONArray coordinatesArray;
+        JSONArray coordinates;
+        JSONObject geometryObj;
+        JSONObject featuresObj;
+        JSONArray featuresArray;
+
+        coordinatesArray=new JSONArray();
+        featuresArray = new JSONArray();
+        for(int i=0;i<laneObjectID.size();i++){
+            for(int j=0;j<jsonBikeLanes.size();j++){
+                if(laneObjectID.get(i)==jsonBikeLanes.get(j).objectID){
+                    coordinates=new JSONArray();
+                    coordinates.put(jsonBikeLanes.get(j).coordinates.latitude);
+                    coordinates.put(jsonBikeLanes.get(j).coordinates.longitude);
+                    coordinatesArray.put(coordinates);
+                }
+            }
+            geometryObj = new JSONObject();
+            geometryObj.put("type","LineString");
+            geometryObj.put("coordinates",coordinatesArray);
+
+            featuresObj = new JSONObject();
+            featuresObj.put("type","Feature");
+            featuresObj.put("geometry",geometryObj);
+            featuresArray.put(featuresObj);
+        }
+
+        cycleLanesObject=new JSONObject();
+        cycleLanesObject.put("type","FeatureCollection");
+        cycleLanesObject.put("features",featuresArray);
 
     }
 
