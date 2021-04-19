@@ -92,6 +92,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private List<LatLng> routeCoordinates = null;
     private List<BikeLanesObject> jsonBikeLanes = null;
     private List<Integer> laneObjectID = null;
+    private List<Integer> laneObjectSize = null;
     private List<LatLng> laneCoordiantes= null;
 
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -413,51 +414,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             mMap.moveCamera(CameraUpdateFactory.newLatLng(route.get(0).getLatLgnBounds().getCenter()));
             LatLngBounds.Builder builder = new LatLngBounds.Builder();
 
-            //get furthest north point
-            /*double northLat, furthestNorth=0;
-            for(int i=0;i<routeCoordinates.size();i++){
-                northLat=routeCoordinates.get(i).latitude;
-                if(northLat>furthestNorth){
-                    furthestNorth=northLat;
-                }else{
-                    furthestNorth=furthestNorth;
-                }
-            }
-
-            //get furthest south point
-            double southLat, furthestSouth=0;
-            for(int i=0;i<routeCoordinates.size();i++){
-                southLat=routeCoordinates.get(i).latitude;
-                if(southLat<furthestSouth){
-                    furthestSouth=southLat;
-                }else{
-                    furthestSouth=furthestSouth;
-                }
-            }
-
-            //get furthest east point
-            double eastLng, furthestEast=0;
-            for(int i=0;i<routeCoordinates.size();i++){
-                eastLng=routeCoordinates.get(i).longitude;
-                if(eastLng<furthestEast){
-                    furthestEast=eastLng;
-                }else{
-                    furthestEast=furthestEast;
-                }
-            }
-
-            //get furthest west point
-            double westLng, furthestWest=0;
-            for(int i=0;i<routeCoordinates.size();i++){
-                westLng=routeCoordinates.get(i).longitude;
-                if(westLng>furthestWest){
-                    furthestWest=westLng;
-                }else{
-                    furthestWest=furthestWest;
-                }
-            }*/
-
-
 
             builder.include(polylineStartLatLng);
             builder.include(polylineEndLatLng);
@@ -488,9 +444,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    private void findCycleLanesOnRoute() throws JSONException, ParseException {
+    private void findCycleLanesOnRoute() throws JSONException {
 
-        double currentLat, currentLng, nextLat, nextLng;
+        double currentLat = 0, currentLng = 0, nextLat = 0, nextLng = 0;
         LatLng currentPoint = null;
         LatLng nextPoint=null;
 
@@ -502,22 +458,24 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         BikeLanesObject laneObject;
 
         laneObjectID=new ArrayList<Integer>();
-
+        ArrayList <Integer> testList=new ArrayList<>();
 
         for(int i=0;i<routeCoordinates.size();i++){
-            currentLat=routeCoordinates.get(i).latitude;
-            currentLng=routeCoordinates.get(i).longitude;
-            currentPoint=new LatLng(currentLat,currentLng);
 
-            nextLat=routeCoordinates.get(i+1).latitude;
-            nextLng=routeCoordinates.get(i+1).longitude;
-            nextPoint=new LatLng(nextLat,nextLng);
+            if(i != routeCoordinates.size()-1){
+                currentLat=routeCoordinates.get(i).latitude;
+                currentLng=routeCoordinates.get(i).longitude;
+                currentPoint=new LatLng(currentLat,currentLng);
+
+                nextLat=routeCoordinates.get(i+1).latitude;
+                nextLng=routeCoordinates.get(i+1).longitude;
+                nextPoint=new LatLng(nextLat,nextLng);
+            }
 
             routeBearing=findRouteBearing(currentPoint, nextPoint);
-            Log.i(TAG, "findCycleLanesOnRoute: bearing: "+routeBearing);
-
 
             count=0;
+
 
             for(int j=0;j<jsonBikeLanes.size();j++){
                 bikeLat=jsonBikeLanes.get(j).coordinates.latitude;
@@ -526,55 +484,60 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 objectID=jsonBikeLanes.get(j).objectID;
                 laneObject=new BikeLanesObject(objectID, bikeLane);
                 count++;
+                int testInt=0;
 
                 //if statement to find matches
                 if(routeBearing>=0 && routeBearing<=90){
                     if((bikeLat>=currentLat && bikeLat<=nextLat) && (bikeLng>=currentLng && bikeLng<=nextLng)){
                         findBikeLane(objectID);
+                        Log.i(TAG, "findCycleLanesOnRoute: found 1");
                     }
                 }
                 else if(routeBearing>90 && routeBearing<=180){
                     if((bikeLat<=currentLat && bikeLat>=nextLat) && (bikeLng>=currentLng && bikeLng<=nextLng)){
                         findBikeLane(objectID);
+                        Log.i(TAG, "findCycleLanesOnRoute: found 2");
                     }
                 }
                 else if(routeBearing>180 && routeBearing<=270){
                     if((bikeLat<=currentLat && bikeLat>=nextLat) && (bikeLng<=currentLng && bikeLng>=nextLng)){
                         findBikeLane(objectID);
+                        Log.i(TAG, "findCycleLanesOnRoute: found 3");
                     }
                 }
                 else if(routeBearing>270 && routeBearing<=360){
                     if((bikeLat>=currentLat && bikeLat<=nextLat) && (bikeLng<=currentLng && bikeLng>=nextLng)){
                         findBikeLane(objectID);
+                        Log.i(TAG, "findCycleLanesOnRoute: found 4");
                     }
-                }
-                else{
-
                 }
             }
         }
 
         laneCoordinatesToJson();
 
-        Log.i(TAG, "findCycleLanesOnRoute: laneCoordinates: "+laneCoordiantes);
 
     }
 
-    private List<Integer> findBikeLane(double objectID) {
+    private List<Integer> findBikeLane(int objectID) {
+        int count=0;
         for(int i=0;i<jsonBikeLanes.size();i++){
             if(jsonBikeLanes.get(i).objectID==objectID){
-                for(int j=0;j<laneObjectID.size();j++){
-                    if(laneObjectID.size()==0){
-                        laneObjectID.add(jsonBikeLanes.get(i).objectID);
-                    }else{
-                        if(objectID != laneObjectID.get(i)){
-                            laneObjectID.add(jsonBikeLanes.get(i).objectID);
+                count++;
+                if(laneObjectID.size()==0){
+                    laneObjectID.add(objectID);
+                }else{
+                    for(int j=0;j<laneObjectID.size();j++){
+                        if(!laneObjectID.contains(jsonBikeLanes.get(i).objectID)){
+                            laneObjectID.add(objectID);
                         }
                     }
                 }
 
+
             }
         }
+        laneObjectSize.add(count);
         return laneObjectID;
     }
 
@@ -586,11 +549,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         JSONObject featuresObj;
         JSONArray featuresArray;
 
+        Log.i(TAG, "laneCoordinatesToJson: parsing json: "+laneObjectID.toString());
+
         coordinatesArray=new JSONArray();
         featuresArray = new JSONArray();
         for(int i=0;i<laneObjectID.size();i++){
             for(int j=0;j<jsonBikeLanes.size();j++){
                 if(laneObjectID.get(i)==jsonBikeLanes.get(j).objectID){
+                    for(int k=0;k<laneObjectSize.size();k++){
+
+                    }
                     coordinates=new JSONArray();
                     coordinates.put(jsonBikeLanes.get(j).coordinates.latitude);
                     coordinates.put(jsonBikeLanes.get(j).coordinates.longitude);
@@ -611,6 +579,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         cycleLanesObject.put("type","FeatureCollection");
         cycleLanesObject.put("features",featuresArray);
 
+        Log.i(TAG, "laneCoordinatesToJson: json: "+cycleLanesObject.toString());
     }
 
     private double findRouteBearing(LatLng startLatLng, LatLng endLatLng) {
