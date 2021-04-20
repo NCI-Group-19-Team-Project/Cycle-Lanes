@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Address;
@@ -54,6 +55,8 @@ import org.json.JSONObject;
 import org.json.simple.parser.ParseException;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -63,6 +66,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.example.cyclelanes.R.raw.dublinbikelanes;
+import static com.example.cyclelanes.R.raw.galwaycyclelanes;
+import static com.example.cyclelanes.R.raw.test;
 
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback,
@@ -98,6 +103,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private static final String TAG = MainActivity.class.getSimpleName();
 
     LatLngBounds bounds;
+
+    Context context;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {//This acts as the main method for the android application
@@ -214,14 +221,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     private void getCycleLaneData() {
-        try {
-            GeoJsonLayer layer=new GeoJsonLayer(mMap, R.raw.dublinbikelanes, getApplicationContext());
+        /*try {
+            GeoJsonLayer layer=new GeoJsonLayer(mMap, R.raw.test, getApplicationContext());
             GeoJsonLineStringStyle lineStringStyle = layer.getDefaultLineStringStyle();
             lineStringStyle.setColor(Color.RED);
             lineStringStyle.setPolygonStrokeWidth(1);
+            layer.addLayerToMap();
 
-
-            toggleBikeLanes = findViewById(R.id.toggleBikeLanes);
+            /*toggleBikeLanes = findViewById(R.id.toggleBikeLanes);
             toggleBikeLanes.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override
                 public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -237,7 +244,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             e.printStackTrace();
         } catch (JSONException e) {
             e.printStackTrace();
-        }
+        }*/
 
 
 
@@ -250,7 +257,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng bikeLaneCoordinates=null;
         jsonBikeLanes=new ArrayList<>();
 
-        String jsonStr=readJSONFromResource(R.raw.dublinbikelanes);
+        String jsonStr=readJSONFromResource(dublinbikelanes);
         JSONObject reader=new JSONObject(jsonStr);
         JSONArray features=reader.getJSONArray("features");
 
@@ -444,7 +451,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    private void findCycleLanesOnRoute() throws JSONException {
+    private void findCycleLanesOnRoute() throws JSONException, IOException {
 
         double currentLat = 0, currentLng = 0, nextLat = 0, nextLng = 0;
         LatLng currentPoint = null;
@@ -454,7 +461,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         
         double bikeLat, bikeLng;
         LatLng bikeLane;
-        int objectID, count;
+        int objectID;
         BikeLanesObject laneObject;
 
         laneObjectID=new ArrayList<Integer>();
@@ -474,7 +481,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             routeBearing=findRouteBearing(currentPoint, nextPoint);
 
-            count=0;
 
 
             for(int j=0;j<jsonBikeLanes.size();j++){
@@ -483,7 +489,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 bikeLane=new LatLng(bikeLat, bikeLng);
                 objectID=jsonBikeLanes.get(j).objectID;
                 laneObject=new BikeLanesObject(objectID, bikeLane);
-                count++;
                 int testInt=0;
 
                 //if statement to find matches
@@ -514,16 +519,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         }
 
+        Log.i(TAG, "findCycleLanesOnRoute: count: "+laneObjectSize);
+
         laneCoordinatesToJson();
 
 
     }
 
     private List<Integer> findBikeLane(int objectID) {
-        int count=0;
         for(int i=0;i<jsonBikeLanes.size();i++){
             if(jsonBikeLanes.get(i).objectID==objectID){
-                count++;
                 if(laneObjectID.size()==0){
                     laneObjectID.add(objectID);
                 }else{
@@ -534,43 +539,52 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     }
                 }
 
-
             }
         }
-        laneObjectSize.add(count);
+
+
         return laneObjectID;
     }
 
-    private void laneCoordinatesToJson() throws JSONException {
+    private void laneCoordinatesToJson() throws JSONException, IOException {
         JSONObject cycleLanesObject;//stores the whole object
         JSONArray coordinatesArray;
         JSONArray coordinates;
         JSONObject geometryObj;
+        JSONObject propertiesObj;
         JSONObject featuresObj;
         JSONArray featuresArray;
 
         Log.i(TAG, "laneCoordinatesToJson: parsing json: "+laneObjectID.toString());
+        Log.i(TAG, "laneCoordinatesToJson: parsing json: "+laneObjectID.size());
 
-        coordinatesArray=new JSONArray();
+
         featuresArray = new JSONArray();
-        for(int i=0;i<laneObjectID.size();i++){
-            for(int j=0;j<jsonBikeLanes.size();j++){
-                if(laneObjectID.get(i)==jsonBikeLanes.get(j).objectID){
-                    for(int k=0;k<laneObjectSize.size();k++){
 
-                    }
-                    coordinates=new JSONArray();
-                    coordinates.put(jsonBikeLanes.get(j).coordinates.latitude);
+        for(int i=0;i<laneObjectID.size();i++){
+            coordinatesArray=new JSONArray();
+
+            for(int j=0;j<jsonBikeLanes.size();j++){
+                if(laneObjectID.get(i) == jsonBikeLanes.get(j).objectID){
+                    coordinates = new JSONArray();
                     coordinates.put(jsonBikeLanes.get(j).coordinates.longitude);
+                    coordinates.put(jsonBikeLanes.get(j).coordinates.latitude);
+
                     coordinatesArray.put(coordinates);
                 }
             }
+
+
             geometryObj = new JSONObject();
             geometryObj.put("type","LineString");
             geometryObj.put("coordinates",coordinatesArray);
 
+            propertiesObj = new JSONObject();
+            propertiesObj.put("OBJECTID",laneObjectID.get(i));
+
             featuresObj = new JSONObject();
             featuresObj.put("type","Feature");
+            featuresObj.put("properties",propertiesObj);
             featuresObj.put("geometry",geometryObj);
             featuresArray.put(featuresObj);
         }
@@ -578,8 +592,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         cycleLanesObject=new JSONObject();
         cycleLanesObject.put("type","FeatureCollection");
         cycleLanesObject.put("features",featuresArray);
+        String cycleLanes=cycleLanesObject.toString();
 
         Log.i(TAG, "laneCoordinatesToJson: json: "+cycleLanesObject.toString());
+
+        GeoJsonLayer layer=new GeoJsonLayer(mMap, cycleLanesObject);
+        GeoJsonLineStringStyle lineStringStyle = layer.getDefaultLineStringStyle();
+        lineStringStyle.setColor(Color.RED);
+        lineStringStyle.setPolygonStrokeWidth(1);
+        layer.addLayerToMap();
     }
 
     private double findRouteBearing(LatLng startLatLng, LatLng endLatLng) {
