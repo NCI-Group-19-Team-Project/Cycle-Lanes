@@ -26,6 +26,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.SearchView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -72,8 +74,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     //data members
     private GoogleMap mMap;//GoogleMap Object
-    SearchView searchView;
-    ToggleButton toggleBikeLanes;
 
     //current and destination location objects
     Location myLocation = null;//used to store location of device
@@ -105,9 +105,20 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     boolean mapLoaded=false;
 
+    //values for display box
     int routeRating;
     double routeDistance;
     String routeDistanceText;
+
+    //Buttons and views
+    SearchView searchView;
+    ToggleButton toggleBikeLanes;
+    Button showInfoBtn;
+    boolean showinfoBtnSelected=false;
+    Button cancelBtn;
+
+    //Widgets
+    private EditText mSearchText;
 
     @RequiresApi(api = Build.VERSION_CODES.P)
     @Override
@@ -115,8 +126,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);//R is used to locate files in the res folder such as XML, JSON and other text formats
 
-
         requestPermision();//calls method to request location data
+
 
         //initialise the google map
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -133,7 +144,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             e.printStackTrace();
         }
 
+        initialisteButtons();
+
     }
+
 
     private void requestPermision() {//this method gets the permission from the manifest file
         //if the location permission is false, ask user to share their location. Note that the manifest file will save that choice by altering location permission in the phone settings
@@ -180,7 +194,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 myLocation = location;
                 LatLng ltlng = new LatLng(location.getLatitude(), location.getLongitude());
 
-                if(mapLoaded!=true){
+                if(mapLoaded==false){//if the map has not loaded, move the camera to the users location
                     mapLoaded=true;
                     //mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(ltlng, 12));
 
@@ -190,14 +204,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         });
 
-
-
-
         //when the user clicks on an are on the map, set the end latlng to the coordinates that the user clicked
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
-
                 end = latLng;
 
                 mMap.clear();
@@ -206,8 +216,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 start = new LatLng(53.3330556, -6.2488889);//for testing purposes
 
                 Findroutes(start, end);//calls FindRoutes method to calculate route using the start as the user location and the end as the area that the user clicked
+
             }
         });
+
+
 
 
     }//end getMyLocation()
@@ -217,8 +230,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-        getMyLocation();
-        getCycleLaneData();
+        getMyLocation();//when map has loaded, application gets the users location
+        //getCycleLaneData();//calls method to show user all bike lanes within dublin
+
 
         mMap.getUiSettings().setZoomControlsEnabled(true);
         mMap.getUiSettings().setAllGesturesEnabled(true);
@@ -226,11 +240,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng latlng=new LatLng(53.3330556,-6.2488889);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latlng, 14));
 
-        //Log.i(TAG, "onCameraMove: "+ mMap.getProjection().getVisibleRegion().latLngBounds);
+    }
+
+    private void initialisteButtons() {
+        showInfoBtn = findViewById(R.id.showInfoBtn);
+
+
 
     }
 
-
+    //method displays all data from dublinbikelanes geojson file. not used as it slows down application too much to be used. needs optimiziation.
     private void getCycleLaneData() {
         /*try {
             GeoJsonLayer layer=new GeoJsonLayer(mMap, R.raw.test, getApplicationContext());
@@ -384,9 +403,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             routeDistance=0;
             routeDistanceText=null;
 
-            if (polylines != null) {//if there are polylines already drawn in the map clear them
-                polylines.clear();
-            }
+
             PolylineOptions polyOptions = new PolylineOptions();
             LatLng polylineStartLatLng = null;
             LatLng polylineEndLatLng = null;
@@ -419,6 +436,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
 
             }
+
+
+            showInfoBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    clearPolylines();
+                    Log.i(TAG, "onClick: showInfoBtn clicked");
+                }
+            });
 
             routeDistance=route.get(0).getDistanceValue();
             routeDistanceText=route.get(0).getDistanceText();
@@ -454,6 +480,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }catch(Exception e){
 
         }
+    }
+
+    private void clearPolylines() {
+
+
     }
 
     private void findCycleLanesOnRoute() throws JSONException, IOException {
@@ -594,7 +625,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         return (radian * 180.0 / Math.PI);
     }
 
-    private List<Integer> findBikeLane(int objectID) {
+    private void findBikeLane(int objectID) {
         for(int i=0;i<jsonBikeLanes.size();i++){
             if(jsonBikeLanes.get(i).objectID==objectID){
                 if(laneObjectID.size()==0){
@@ -610,7 +641,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         }
 
-        return laneObjectID;
     }
 
     private void laneCoordinatesToJson() throws JSONException, IOException {
