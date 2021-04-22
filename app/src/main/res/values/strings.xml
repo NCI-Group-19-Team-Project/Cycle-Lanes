@@ -1,4 +1,5 @@
 <resources>
-    <string name="app_name">CycleLanes</string>
+    <string name="app_name">Cycle Lanes</string>
     <string name="search">Search</string>
+    <string name="bikeImage">Bike Image</string>
 </resources>

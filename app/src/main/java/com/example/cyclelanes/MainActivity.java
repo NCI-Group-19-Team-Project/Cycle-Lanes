@@ -11,6 +11,7 @@ package com.example.cyclelanes;
  * */
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
@@ -21,10 +22,10 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Address;
 import android.location.Location;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.CompoundButton;
 import android.widget.SearchView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
@@ -55,8 +56,6 @@ import org.json.JSONObject;
 import org.json.simple.parser.ParseException;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -66,8 +65,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.example.cyclelanes.R.raw.dublinbikelanes;
-import static com.example.cyclelanes.R.raw.galwaycyclelanes;
-import static com.example.cyclelanes.R.raw.test;
 
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback,
@@ -97,7 +94,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private List<LatLng> routeCoordinates = null;
     private List<BikeLanesObject> jsonBikeLanes = null;
     private List<Integer> laneObjectID = null;
-    private List<Integer> laneObjectSize = null;
+    private List<BikeLanesObject> routeLaneCoordinates = null;
     private List<LatLng> laneCoordiantes= null;
 
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -106,10 +103,18 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
     Context context;
 
+    boolean mapLoaded=false;
+
+    int routeRating;
+    double routeDistance;
+    String routeDistanceText;
+
+    @RequiresApi(api = Build.VERSION_CODES.P)
     @Override
     protected void onCreate(Bundle savedInstanceState) {//This acts as the main method for the android application
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);//R is used to locate files in the res folder such as XML, JSON and other text formats
+
 
         requestPermision();//calls method to request location data
 
@@ -175,11 +180,17 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 myLocation = location;
                 LatLng ltlng = new LatLng(location.getLatitude(), location.getLongitude());
 
+                if(mapLoaded!=true){
+                    mapLoaded=true;
+                    //mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(ltlng, 12));
 
-                //mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(ltlng, 10));
+                }
+
             }
 
         });
+
+
 
 
         //when the user clicks on an are on the map, set the end latlng to the coordinates that the user clicked
@@ -215,7 +226,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng latlng=new LatLng(53.3330556,-6.2488889);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latlng, 14));
 
-        Log.i(TAG, "onCameraMove: "+ mMap.getProjection().getVisibleRegion().latLngBounds);
+        //Log.i(TAG, "onCameraMove: "+ mMap.getProjection().getVisibleRegion().latLngBounds);
 
     }
 
@@ -314,9 +325,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         Log.i(TAG, "parseJSONData: array: "+jsonBikeLanes.size());
     }
 
-    //read in galwaycyclelanes geojson from raw resources folder and convert to string
     public String readJSONFromResource(int fileID) throws IOException {
-        InputStream is = getResources().openRawResource(dublinbikelanes);
+        InputStream is = getResources().openRawResource(fileID);
         Writer writer = new StringWriter();
         BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
         String line = reader.readLine();
@@ -371,6 +381,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     public void onRoutingSuccess(ArrayList<Route> route, int shortestRouteIndex) {
 
         try {
+            routeDistance=0;
+            routeDistanceText=null;
+
             if (polylines != null) {//if there are polylines already drawn in the map clear them
                 polylines.clear();
             }
@@ -399,16 +412,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         routeCoordinates.add(point);
                     }
 
-                    /*double routeLat=routeCoordinates.get(i).latitude;
-                    double routeLng=routeCoordinates.get(i).longitude;
-
-                    for(int j=0;j<jsonBikeLanes.size();j++){
-                        double jsonLat=jsonBikeLanes.get(j).latitude;
-                        double jsonLng=jsonBikeLanes.get(j).longitude;
-
-                    }*/
-
-
 
                 } else {
 
@@ -417,11 +420,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
 
+            routeDistance=route.get(0).getDistanceValue();
+            routeDistanceText=route.get(0).getDistanceText();
+            Log.i(TAG, "onRoutingSuccess: route distance2: "+route.get(0).getDistanceValue());
+
             //center camera over route
             mMap.moveCamera(CameraUpdateFactory.newLatLng(route.get(0).getLatLgnBounds().getCenter()));
             LatLngBounds.Builder builder = new LatLngBounds.Builder();
-
-
             builder.include(polylineStartLatLng);
             builder.include(polylineEndLatLng);
             bounds=builder.build();
@@ -455,17 +460,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         double currentLat = 0, currentLng = 0, nextLat = 0, nextLng = 0;
         LatLng currentPoint = null;
-        LatLng nextPoint=null;
+        LatLng nextPoint = null;
 
         double routeBearing;
         
         double bikeLat, bikeLng;
-        LatLng bikeLane;
         int objectID;
-        BikeLanesObject laneObject;
+        routeRating=0;
 
         laneObjectID=new ArrayList<Integer>();
-        ArrayList <Integer> testList=new ArrayList<>();
 
         for(int i=0;i<routeCoordinates.size();i++){
 
@@ -481,49 +484,114 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             routeBearing=findRouteBearing(currentPoint, nextPoint);
 
-
-
             for(int j=0;j<jsonBikeLanes.size();j++){
                 bikeLat=jsonBikeLanes.get(j).coordinates.latitude;
                 bikeLng=jsonBikeLanes.get(j).coordinates.longitude;
-                bikeLane=new LatLng(bikeLat, bikeLng);
                 objectID=jsonBikeLanes.get(j).objectID;
-                laneObject=new BikeLanesObject(objectID, bikeLane);
-                int testInt=0;
 
                 //if statement to find matches
                 if(routeBearing>=0 && routeBearing<=90){
                     if((bikeLat>=currentLat && bikeLat<=nextLat) && (bikeLng>=currentLng && bikeLng<=nextLng)){
                         findBikeLane(objectID);
-                        Log.i(TAG, "findCycleLanesOnRoute: found 1");
                     }
                 }
                 else if(routeBearing>90 && routeBearing<=180){
                     if((bikeLat<=currentLat && bikeLat>=nextLat) && (bikeLng>=currentLng && bikeLng<=nextLng)){
                         findBikeLane(objectID);
-                        Log.i(TAG, "findCycleLanesOnRoute: found 2");
                     }
                 }
                 else if(routeBearing>180 && routeBearing<=270){
                     if((bikeLat<=currentLat && bikeLat>=nextLat) && (bikeLng<=currentLng && bikeLng>=nextLng)){
                         findBikeLane(objectID);
-                        Log.i(TAG, "findCycleLanesOnRoute: found 3");
                     }
                 }
                 else if(routeBearing>270 && routeBearing<=360){
                     if((bikeLat>=currentLat && bikeLat<=nextLat) && (bikeLng<=currentLng && bikeLng>=nextLng)){
                         findBikeLane(objectID);
-                        Log.i(TAG, "findCycleLanesOnRoute: found 4");
                     }
                 }
             }
         }
 
-        Log.i(TAG, "findCycleLanesOnRoute: count: "+laneObjectSize);
+        routeLaneCoordinates=new ArrayList<>();
+        LatLng routeLaneLatLng;
+        BikeLanesObject routeLaneObject;
 
+        for(int i=0;i<laneObjectID.size();i++){
+            for(int j=0;j<jsonBikeLanes.size();j++){
+                if(laneObjectID.get(i) == jsonBikeLanes.get(j).objectID){
+                    routeLaneLatLng=new LatLng(jsonBikeLanes.get(j).coordinates.latitude,jsonBikeLanes.get(j).coordinates.longitude);
+                    routeLaneObject=new BikeLanesObject(laneObjectID.get(i),routeLaneLatLng);
+                    routeLaneCoordinates.add(routeLaneObject);
+                }
+            }
+        }
+
+        routeRating=calculateRouteRating();
         laneCoordinatesToJson();
 
 
+    }
+
+    private int calculateRouteRating() {
+        double aggregatedLaneDistance=0;
+        double routeDistance=0;
+
+        for(int i=0;i<laneObjectID.size();i++){
+            double laneDistance=0;
+            for(int j=0;j<routeLaneCoordinates.size();j++){
+                double newDistance=0;
+                if(j != routeLaneCoordinates.size()-1) {
+                    if(laneObjectID.get(i) == routeLaneCoordinates.get(j).objectID && laneObjectID.get(i) == routeLaneCoordinates.get(j+1).objectID){
+                        newDistance = calculateLaneDistance(routeLaneCoordinates.get(j).coordinates.latitude, routeLaneCoordinates.get(j).coordinates.longitude, routeLaneCoordinates.get(j + 1).coordinates.latitude, routeLaneCoordinates.get(j + 1).coordinates.longitude);
+
+                    }
+                }
+                laneDistance=laneDistance+newDistance;
+            }
+            aggregatedLaneDistance=aggregatedLaneDistance+laneDistance;
+        }
+
+        for(int i=0;i<routeCoordinates.size();i++){
+            double newDistance=0;
+            if(i != routeCoordinates.size()-1){
+                newDistance = calculateLaneDistance(routeCoordinates.get(i).latitude, routeCoordinates.get(i).longitude, routeCoordinates.get(i+1).latitude, routeCoordinates.get(i+1).longitude);
+            }
+            routeDistance=routeDistance+newDistance;
+        }
+
+        double doubleRating=0;
+        int intRating=0;
+        doubleRating = aggregatedLaneDistance/routeDistance *100;
+        intRating= (int) doubleRating;
+
+        if(intRating>100){
+            intRating=100;
+        }
+
+        Log.i(TAG, "calculateRouteRating: lane distance: "+aggregatedLaneDistance);
+        Log.i(TAG, "calculateRouteRating: route distance: "+routeDistance);
+        Log.i(TAG, "calculateRouteRating: rating: "+intRating);
+
+        return intRating;
+    }
+
+    private double calculateLaneDistance(double startLat, double startLng, double endLat, double endLng) {
+        double theta = startLng - endLng;
+        double distance = Math.sin(degreeToRadian(startLat)) * Math.sin(degreeToRadian(endLat)) + Math.cos(degreeToRadian(startLat)) * Math.cos(degreeToRadian(endLat)) * Math.cos(degreeToRadian(theta));
+        distance = Math.acos(distance);
+        distance = radianToDegree(distance);
+        distance = distance * 60 * 1.1515;
+        distance = distance * 1.609344;
+        return distance;
+    }
+
+    private double degreeToRadian(double degree){
+        return (degree * Math.PI / 180.0);
+    }
+
+    private double radianToDegree(double radian){
+        return (radian * 180.0 / Math.PI);
     }
 
     private List<Integer> findBikeLane(int objectID) {
@@ -541,7 +609,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         }
-
 
         return laneObjectID;
     }
@@ -566,6 +633,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             for(int j=0;j<jsonBikeLanes.size();j++){
                 if(laneObjectID.get(i) == jsonBikeLanes.get(j).objectID){
+
+
+                    
                     coordinates = new JSONArray();
                     coordinates.put(jsonBikeLanes.get(j).coordinates.longitude);
                     coordinates.put(jsonBikeLanes.get(j).coordinates.latitude);
