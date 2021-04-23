@@ -17,18 +17,28 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.TranslateAnimation;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.RelativeLayout;
 import android.widget.SearchView;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
@@ -104,21 +114,26 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     Context context;
 
     boolean mapLoaded=false;
+    boolean mapClick=false;
+    boolean clickMapBtnClicked=false;
 
     //values for display box
     int routeRating;
     double routeDistance;
     String routeDistanceText;
 
-    //Buttons and views
-    SearchView searchView;
-    ToggleButton toggleBikeLanes;
-    Button showInfoBtn;
-    boolean showinfoBtnSelected=false;
-    Button cancelBtn;
 
     //Widgets
     private EditText mSearchText;
+    ImageButton searchBtn;
+    Button clickMapBtn;
+    RelativeLayout searchBarLayout;
+
+    Animation animateSearchBarIn;
+    Animation animateSearchBarOut;
+    Animation animateClickMapIn;
+    Animation animateClickMapOut;
+
 
     @RequiresApi(api = Build.VERSION_CODES.P)
     @Override
@@ -144,10 +159,93 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             e.printStackTrace();
         }
 
-        initialisteButtons();
 
     }
 
+    private void intitaliseUI() {
+        mSearchText = (EditText) findViewById(R.id.input_search);
+        searchBtn=findViewById(R.id.searchBtn);
+        clickMapBtn=findViewById(R.id.clickMapBtn);
+        searchBarLayout=findViewById(R.id.searchBarLayout);
+
+        animateSearchBarIn=new TranslateAnimation(0, 0,-200, 0);
+        animateSearchBarIn.setDuration(400);
+        animateSearchBarIn.setFillAfter(true);
+
+        animateSearchBarOut=new TranslateAnimation(0, 0,200, -200);
+        animateSearchBarOut.setDuration(400);
+        animateSearchBarOut.setFillAfter(true);
+
+        animateClickMapIn=new TranslateAnimation(0, 0,200, 0);
+        animateClickMapIn.setDuration(400);
+        animateClickMapIn.setFillAfter(true);
+
+        animateClickMapOut=new TranslateAnimation(0, 0,-200, 200);
+        animateClickMapOut.setDuration(400);
+        animateClickMapOut.setFillAfter(true);
+
+        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+            @Override
+            public void onMapClick(LatLng latLng) {
+
+                if(clickMapBtnClicked==true){
+                    findRouteCoordinates(latLng);
+                    clickMapBtnClicked=false;
+
+                }else {
+                    if (mapClick == false) {
+                        searchBarLayout.setTranslationY(-200);
+                        searchBarLayout.startAnimation(animateSearchBarOut);
+                        clickMapBtn.setTranslationY(200);
+                        clickMapBtn.startAnimation(animateClickMapOut);
+                        mapClick = true;
+                    } else {
+                        searchBarLayout.startAnimation(animateSearchBarIn);
+                        searchBarLayout.setTranslationY(0);
+                        clickMapBtn.setTranslationY(0);
+                        clickMapBtn.startAnimation(animateClickMapIn);
+                        mapClick = false;
+
+                    }
+                }
+
+                /*end = latLng;
+                findRouteCoordinates(end);*/
+            }
+        });
+
+        searchBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                LatLng end=geoLocate();
+                findRouteCoordinates(end);
+                mSearchText.setText("");
+            }
+        });
+
+        clickMapBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                clickMapBtnClicked=true;
+                searchBarLayout.setTranslationY(-200);
+                searchBarLayout.startAnimation(animateSearchBarOut);
+            }
+        });
+
+        mSearchText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+            }
+        });
+    }
+
+    private void findRouteCoordinates(LatLng end){
+        mMap.clear();
+        start=new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
+
+        Findroutes(start, end);
+    }
 
     private void requestPermision() {//this method gets the permission from the manifest file
         //if the location permission is false, ask user to share their location. Note that the manifest file will save that choice by altering location permission in the phone settings
@@ -196,7 +294,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
                 if(mapLoaded==false){//if the map has not loaded, move the camera to the users location
                     mapLoaded=true;
-                    //mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(ltlng, 12));
+                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(ltlng, 14));
 
                 }
 
@@ -205,25 +303,53 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         });
 
         //when the user clicks on an are on the map, set the end latlng to the coordinates that the user clicked
-        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+        /*mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
             public void onMapClick(LatLng latLng) {
                 end = latLng;
 
                 mMap.clear();
 
-                //start=new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
-                start = new LatLng(53.3330556, -6.2488889);//for testing purposes
+                start=new LatLng(myLocation.getLatitude(),myLocation.getLongitude());
+                //start = new LatLng(53.3330556, -6.2488889);//for testing purposes
 
                 Findroutes(start, end);//calls FindRoutes method to calculate route using the start as the user location and the end as the area that the user clicked
 
             }
-        });
-
-
+        });*/
 
 
     }//end getMyLocation()
+
+
+    private LatLng geoLocate(){
+        Log.d(TAG, "geoLocate: geoLocating");
+
+        String searchString = mSearchText.getText().toString();
+
+        Geocoder geocoder = new Geocoder(MainActivity.this);
+        List<Address> list = new ArrayList<>();
+        try {
+            list = geocoder.getFromLocationName(searchString, 1);
+        }catch (IOException e){
+            Log.e(TAG, "geoLocate: IOException: " + e.getMessage() );
+        }
+        if (list.size() > 0){
+            Address address = list.get(0);
+
+            Log.d(TAG, "geoLocate: found a location " + address.toString());
+            //Toast.makeText(this, address.toString(), Toast.Length_SHORT().show()
+        }
+        double lat;
+        double lng;
+        lat=list.get(0).getLatitude();
+        lng=list.get(0).getLongitude();
+        LatLng addressCoordinates =new LatLng(lat,lng);
+
+        return addressCoordinates;
+    }
+
+
 
 
     @Override
@@ -232,22 +358,17 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         getMyLocation();//when map has loaded, application gets the users location
         //getCycleLaneData();//calls method to show user all bike lanes within dublin
-
+        intitaliseUI();
 
         mMap.getUiSettings().setZoomControlsEnabled(true);
-        mMap.getUiSettings().setAllGesturesEnabled(true);
 
-        LatLng latlng=new LatLng(53.3330556,-6.2488889);
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latlng, 14));
-
-    }
-
-    private void initialisteButtons() {
-        showInfoBtn = findViewById(R.id.showInfoBtn);
-
+        /*LatLng latlng=new LatLng(53.3330556,-6.2488889);
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latlng, 14));*/
 
 
     }
+
+
 
     //method displays all data from dublinbikelanes geojson file. not used as it slows down application too much to be used. needs optimiziation.
     private void getCycleLaneData() {
@@ -437,15 +558,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
 
-
-            showInfoBtn.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    clearPolylines();
-                    Log.i(TAG, "onClick: showInfoBtn clicked");
-                }
-            });
-
             routeDistance=route.get(0).getDistanceValue();
             routeDistanceText=route.get(0).getDistanceText();
             Log.i(TAG, "onRoutingSuccess: route distance2: "+route.get(0).getDistanceValue());
@@ -453,10 +565,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             //center camera over route
             mMap.moveCamera(CameraUpdateFactory.newLatLng(route.get(0).getLatLgnBounds().getCenter()));
             LatLngBounds.Builder builder = new LatLngBounds.Builder();
+
             builder.include(polylineStartLatLng);
             builder.include(polylineEndLatLng);
             bounds=builder.build();
-            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 170));
+
+            findCycleLanesOnRoute();
 
             //Add Marker on route starting position
             MarkerOptions startMarker = new MarkerOptions();
@@ -468,13 +583,14 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             MarkerOptions endMarker = new MarkerOptions();
             endMarker.position(polylineEndLatLng);
             endMarker.title("Destination");
+            endMarker.snippet("Dist: "+routeDistanceText+"\nLane: "+routeRating+"%");
             mMap.addMarker(endMarker);
 
             Log.i(TAG, "onRoutingSuccess: bounds: "+bounds);
             Log.i(TAG, "findCycleLanesOnRoute: routeCoordinates: "+routeCoordinates.toString());
             Log.i(TAG, "findCycleLanesOnRoute: routeCoordinates: "+routeCoordinates.size());
 
-            findCycleLanesOnRoute();
+
 
 
         }catch(Exception e){
@@ -482,10 +598,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    private void clearPolylines() {
-
-
-    }
 
     private void findCycleLanesOnRoute() throws JSONException, IOException {
 

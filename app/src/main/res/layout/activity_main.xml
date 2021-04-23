@@ -5,6 +5,7 @@
     android:id="@+id/layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#6697C1"
     android:visibility="visible"
     tools:context=".MainActivity">
 
@@ -15,21 +16,78 @@
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0"
         tools:context=".MainActivity" />
 
-    <Button
-        android:id="@+id/showInfoBtn"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"
-
-        android:background="#A1ECECEC"
-        android:text="@string/more_info"
-        app:layout_constraintBottom_toBottomOf="parent"
+    <RelativeLayout
+        android:id="@+id/searchBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginStart="5dp"
+        android:layout_marginLeft="5dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginEnd="5dp"
+        android:layout_marginRight="5dp"
+        android:background="@drawable/white_border"
+        android:elevation="10dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="@+id/map"
+        app:layout_constraintTop_toTopOf="@+id/map">
+
+        <ImageView
+            android:id="@+id/ic_magnify"
+            android:layout_width="15dp"
+            android:layout_height="15dp"
+            android:layout_centerVertical="true"
+            android:layout_marginLeft="10dp"
+            android:src="@drawable/ic_magnify" />
+
+        <EditText
+            android:id="@+id/input_search"
+            android:layout_width="384dp"
+            android:layout_height="match_parent"
+            android:layout_centerVertical="true"
+            android:layout_toRightOf="@id/ic_magnify"
+            android:background="@null"
+            android:hint="Enter Destination"
+            android:imeOptions="actionSearch"
+            android:textColor="#000"
+            android:textSize="15sp" />
+
+        <ImageButton
+            android:id="@+id/searchBtn"
+            android:layout_width="56dp"
+            android:layout_height="match_parent"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentRight="true"
+            android:layout_marginTop="-1dp"
+            android:layout_marginEnd="5dp"
+            android:layout_marginRight="5dp"
+            android:background="#ffffff"
+            android:src="@drawable/ic_baseline_arrow_forward_24" />
+
+    </RelativeLayout>
+
+    <Button
+        android:id="@+id/clickMapBtn"
+        android:layout_width="154dp"
+        android:layout_height="57dp"
+        android:layout_marginEnd="100dp"
+        android:layout_marginRight="100dp"
+        android:layout_marginBottom="16dp"
+        android:drawablePadding="2dip"
+        android:gravity="center"
+        android:paddingLeft="20dip"
+        android:paddingRight="20dip"
+        android:background="@drawable/click_map_button"
+        android:drawableRight="@drawable/ic_baseline_add_location_24"
+        android:text="Click Map"
+        app:layout_constraintBottom_toBottomOf="@+id/map"
+        app:layout_constraintEnd_toEndOf="@+id/map" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
