@@ -18,6 +18,7 @@ import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -33,6 +34,7 @@ import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -106,10 +108,13 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private List<Integer> laneObjectID = null;
     private List<BikeLanesObject> routeLaneCoordinates = null;
     private List<LatLng> laneCoordiantes= null;
+    private List<LatLng> routeLaneContactPoint=null;
+    private List<BikeLanesObject> refinedLaneList=null;
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
     LatLngBounds bounds;
+    LatLngBounds cameraBounds;
 
     Context context;
 
@@ -143,7 +148,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         requestPermision();//calls method to request location data
 
-
         //initialise the google map
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);//gets the map fragment from the activity_main.xml. It then uses R to locate the ID of the fragment which looks like "android:id="@+id/map" in the file
@@ -158,7 +162,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         } catch (ParseException e) {
             e.printStackTrace();
         }
-
 
     }
 
@@ -186,10 +189,11 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
             @Override
-            public void onMapClick(LatLng latLng) {
+            public void onMapClick(LatLng end) {
+                hideKeyboard(MainActivity.this);
 
                 if(clickMapBtnClicked==true){
-                    findRouteCoordinates(latLng);
+                    findRouteCoordinates(end);
                     clickMapBtnClicked=false;
 
                 }else {
@@ -209,8 +213,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     }
                 }
 
-                /*end = latLng;
-                findRouteCoordinates(end);*/
             }
         });
 
@@ -220,6 +222,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 LatLng end=geoLocate();
                 findRouteCoordinates(end);
                 mSearchText.setText("");
+                searchBarLayout.setTranslationY(-200);
+                searchBarLayout.startAnimation(animateSearchBarOut);
+                mapClick=true;
+                hideKeyboard(MainActivity.this);
             }
         });
 
@@ -229,6 +235,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 clickMapBtnClicked=true;
                 searchBarLayout.setTranslationY(-200);
                 searchBarLayout.startAnimation(animateSearchBarOut);
+                mMap.clear();
             }
         });
 
@@ -238,6 +245,19 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         });
+    }
+
+
+
+    public static void hideKeyboard(Activity activity) {
+        InputMethodManager imm = (InputMethodManager) activity.getSystemService(Activity.INPUT_METHOD_SERVICE);
+        //Find the currently focused view, so we can grab the correct window token from it.
+        View view = activity.getCurrentFocus();
+        //If no view currently has focus, create a new one, just so we can grab a window token from it
+        if (view == null) {
+            view = new View(activity);
+        }
+        imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
     }
 
     private void findRouteCoordinates(LatLng end){
@@ -362,10 +382,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap.getUiSettings().setZoomControlsEnabled(true);
 
-        /*LatLng latlng=new LatLng(53.3330556,-6.2488889);
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(latlng, 14));*/
-
-
+        mMap.setInfoWindowAdapter(new InfoWindowAdapter(MainActivity.this));
     }
 
 
@@ -569,33 +586,47 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             builder.include(polylineStartLatLng);
             builder.include(polylineEndLatLng);
             bounds=builder.build();
-            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 170));
+            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 120));
+
+            cameraBounds=mMap.getProjection().getVisibleRegion().latLngBounds;
+            findLanesInBounds(cameraBounds);
 
             findCycleLanesOnRoute();
 
+
             //Add Marker on route starting position
-            MarkerOptions startMarker = new MarkerOptions();
+            /*MarkerOptions startMarker = new MarkerOptions();
             startMarker.position(polylineStartLatLng );
             startMarker.title("My Location");
-            mMap.addMarker(startMarker);
+            mMap.addMarker(startMarker);*/
 
             //Add Marker on route ending position
             MarkerOptions endMarker = new MarkerOptions();
             endMarker.position(polylineEndLatLng);
             endMarker.title("Destination");
-            endMarker.snippet("Dist: "+routeDistanceText+"\nLane: "+routeRating+"%");
-            mMap.addMarker(endMarker);
+            String snippet=routeDistanceText+" "+routeRating+"%";
+            endMarker.snippet(snippet);
+
+            mMap.addMarker(endMarker).showInfoWindow();
+
+            clickMapBtn.setTranslationY(200);
+            clickMapBtn.startAnimation(animateClickMapOut);
+            mapClick=true;
 
             Log.i(TAG, "onRoutingSuccess: bounds: "+bounds);
             Log.i(TAG, "findCycleLanesOnRoute: routeCoordinates: "+routeCoordinates.toString());
             Log.i(TAG, "findCycleLanesOnRoute: routeCoordinates: "+routeCoordinates.size());
 
 
-
-
         }catch(Exception e){
 
         }
+    }
+
+    private void findLanesInBounds(LatLngBounds cameraBounds) {
+        LatLng northEast = cameraBounds.northeast;
+        LatLng southwest = cameraBounds.southwest;
+        
     }
 
 
@@ -612,6 +643,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         routeRating=0;
 
         laneObjectID=new ArrayList<Integer>();
+        routeLaneContactPoint=new ArrayList<>();
+        refinedLaneList=new ArrayList<>();
 
         for(int i=0;i<routeCoordinates.size();i++){
 
@@ -656,11 +689,16 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         }
 
+        Log.i(TAG, "findCycleLanesOnRoute: lanes: "+laneObjectID.size());
+        Log.i(TAG, "findCycleLanesOnRoute: contact point: "+routeLaneContactPoint.size());
+
         routeLaneCoordinates=new ArrayList<>();
         LatLng routeLaneLatLng;
         BikeLanesObject routeLaneObject;
 
+        //finds the coordinates associated with each objectID
         for(int i=0;i<laneObjectID.size();i++){
+
             for(int j=0;j<jsonBikeLanes.size();j++){
                 if(laneObjectID.get(i) == jsonBikeLanes.get(j).objectID){
                     routeLaneLatLng=new LatLng(jsonBikeLanes.get(j).coordinates.latitude,jsonBikeLanes.get(j).coordinates.longitude);
@@ -668,12 +706,60 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                     routeLaneCoordinates.add(routeLaneObject);
                 }
             }
+
+        }
+
+        for(int i=0;i<laneObjectID.size();i++){
+            ArrayList<LatLng> temp = new ArrayList();
+            for(int j=0;j<routeLaneCoordinates.size();j++){
+                if(laneObjectID.get(i) == routeLaneCoordinates.get(j).objectID){
+
+                    temp.add(routeLaneCoordinates.get(j).coordinates);
+                }
+            }
+            Log.i(TAG, "findCycleLanesOnRoute: temp: "+temp);
         }
 
         routeRating=calculateRouteRating();
         laneCoordinatesToJson();
 
 
+    }
+
+    private void findBikeLane(int objectID) {
+        for(int i=0;i<jsonBikeLanes.size();i++){
+            if(jsonBikeLanes.get(i).objectID==objectID){
+                if(laneObjectID.size()==0){
+                    laneObjectID.add(objectID);
+
+                }else{
+                    for(int j=0;j<laneObjectID.size();j++){
+                        if(!laneObjectID.contains(jsonBikeLanes.get(i).objectID)){
+                            laneObjectID.add(objectID);
+
+                        }
+                    }
+                }
+
+            }
+        }
+
+    }
+
+    private double findRouteBearing(LatLng startLatLng, LatLng endLatLng) {
+        double startLat=startLatLng.latitude;
+        double startLng=startLatLng.longitude;
+        double endLat=endLatLng.latitude;
+        double endLng=endLatLng.longitude;
+
+        double startLatRad=Math.toRadians(startLat);
+        double endLatRad=Math.toRadians(endLat);
+        double lngDiff=Math.toRadians(endLng-startLng);
+
+        double y=Math.sin(lngDiff)*Math.cos(endLatRad);
+        double x=Math.cos(startLatRad)*Math.sin(endLatRad)-Math.sin(startLatRad)*Math.cos(endLatRad)*Math.cos(lngDiff);
+
+        return (Math.toDegrees(Math.atan2(y, x))+360)%360;
     }
 
     private int calculateRouteRating() {
@@ -737,23 +823,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         return (radian * 180.0 / Math.PI);
     }
 
-    private void findBikeLane(int objectID) {
-        for(int i=0;i<jsonBikeLanes.size();i++){
-            if(jsonBikeLanes.get(i).objectID==objectID){
-                if(laneObjectID.size()==0){
-                    laneObjectID.add(objectID);
-                }else{
-                    for(int j=0;j<laneObjectID.size();j++){
-                        if(!laneObjectID.contains(jsonBikeLanes.get(i).objectID)){
-                            laneObjectID.add(objectID);
-                        }
-                    }
-                }
 
-            }
-        }
-
-    }
 
     private void laneCoordinatesToJson() throws JSONException, IOException {
         JSONObject cycleLanesObject;//stores the whole object
@@ -773,14 +843,12 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         for(int i=0;i<laneObjectID.size();i++){
             coordinatesArray=new JSONArray();
 
-            for(int j=0;j<jsonBikeLanes.size();j++){
-                if(laneObjectID.get(i) == jsonBikeLanes.get(j).objectID){
-
-
+            for(int j=0;j<routeLaneCoordinates.size();j++){
+                if(laneObjectID.get(i) == routeLaneCoordinates.get(j).objectID){
                     
                     coordinates = new JSONArray();
-                    coordinates.put(jsonBikeLanes.get(j).coordinates.longitude);
-                    coordinates.put(jsonBikeLanes.get(j).coordinates.latitude);
+                    coordinates.put(routeLaneCoordinates.get(j).coordinates.longitude);
+                    coordinates.put(routeLaneCoordinates.get(j).coordinates.latitude);
 
                     coordinatesArray.put(coordinates);
                 }
@@ -815,21 +883,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         layer.addLayerToMap();
     }
 
-    private double findRouteBearing(LatLng startLatLng, LatLng endLatLng) {
-        double startLat=startLatLng.latitude;
-        double startLng=startLatLng.longitude;
-        double endLat=endLatLng.latitude;
-        double endLng=endLatLng.longitude;
 
-        double startLatRad=Math.toRadians(startLat);
-        double endLatRad=Math.toRadians(endLat);
-        double lngDiff=Math.toRadians(endLng-startLng);
-
-        double y=Math.sin(lngDiff)*Math.cos(endLatRad);
-        double x=Math.cos(startLatRad)*Math.sin(endLatRad)-Math.sin(startLatRad)*Math.cos(endLatRad)*Math.cos(lngDiff);
-
-        return (Math.toDegrees(Math.atan2(y, x))+360)%360;
-    }
 
     @Override
     public void onRoutingCancelled() {
