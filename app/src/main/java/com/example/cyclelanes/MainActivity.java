@@ -121,6 +121,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     boolean mapLoaded=false;
     boolean mapClick=false;
     boolean clickMapBtnClicked=false;
+    boolean searchBtnClicked=false;
 
     //values for display box
     int routeRating;
@@ -238,6 +239,10 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                         searchBarLayout.startAnimation(animateSearchBarOut);
                         mapClick = true;
                         hideKeyboard(MainActivity.this);
+                        searchBtnClicked=true;
+                        if(searchBtnClicked==true){
+                            clearBtn.setTranslationY(0);
+                        }
                     }
                 }
 
