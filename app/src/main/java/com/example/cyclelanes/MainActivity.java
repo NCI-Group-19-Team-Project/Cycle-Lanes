@@ -109,7 +109,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     private List<BikeLanesObject> routeLaneCoordinates = null;
     private List<LatLng> laneCoordiantes= null;
     private List<LatLng> routeLaneContactPoint=null;
-    private List<BikeLanesObject> refinedLaneList=null;
+
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
@@ -133,6 +133,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     ImageButton searchBtn;
     Button clickMapBtn;
     RelativeLayout searchBarLayout;
+    ImageButton clearBtn;
 
     Animation animateSearchBarIn;
     Animation animateSearchBarOut;
@@ -170,6 +171,9 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         searchBtn=findViewById(R.id.searchBtn);
         clickMapBtn=findViewById(R.id.clickMapBtn);
         searchBarLayout=findViewById(R.id.searchBarLayout);
+        clearBtn=findViewById(R.id.clearBtn);
+
+        clearBtn.setTranslationY(200);
 
         animateSearchBarIn=new TranslateAnimation(0, 0,-200, 0);
         animateSearchBarIn.setDuration(400);
@@ -216,19 +220,31 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             }
         });
 
+        //button listener for the search bar
         searchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                LatLng end=geoLocate();
-                findRouteCoordinates(end);
-                mSearchText.setText("");
-                searchBarLayout.setTranslationY(-200);
-                searchBarLayout.startAnimation(animateSearchBarOut);
-                mapClick=true;
-                hideKeyboard(MainActivity.this);
+
+                if(mSearchText.getText() == null){
+                    Toast.makeText(MainActivity.this,"Please enter a location",Toast.LENGTH_LONG).show();
+                }else{
+                    LatLng end=geoLocate();
+                    if(end == null) {
+                        Toast.makeText(MainActivity.this,"Unable to find destination",Toast.LENGTH_LONG).show();
+                    }else{
+                        findRouteCoordinates(end);
+                        mSearchText.setText("");
+                        searchBarLayout.setTranslationY(-200);
+                        searchBarLayout.startAnimation(animateSearchBarOut);
+                        mapClick = true;
+                        hideKeyboard(MainActivity.this);
+                    }
+                }
+
             }
         });
 
+        //button listener to allow user to click on map to find route
         clickMapBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -236,12 +252,23 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
                 searchBarLayout.setTranslationY(-200);
                 searchBarLayout.startAnimation(animateSearchBarOut);
                 mMap.clear();
+                if(clickMapBtnClicked==true){
+                    clearBtn.setTranslationY(0);
+                }
             }
         });
 
-        mSearchText.setOnClickListener(new View.OnClickListener() {
+        clearBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                mMap.clear();
+                clickMapBtnClicked=false;
+                clearBtn.setTranslationY(200);
+                searchBarLayout.startAnimation(animateSearchBarIn);
+                searchBarLayout.setTranslationY(0);
+                clickMapBtn.setTranslationY(0);
+                clickMapBtn.startAnimation(animateClickMapIn);
+                mapClick=false;
 
             }
         });
@@ -588,9 +615,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             bounds=builder.build();
             mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 120));
 
-            cameraBounds=mMap.getProjection().getVisibleRegion().latLngBounds;
-            findLanesInBounds(cameraBounds);
-
             findCycleLanesOnRoute();
 
 
@@ -623,11 +647,7 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         }
     }
 
-    private void findLanesInBounds(LatLngBounds cameraBounds) {
-        LatLng northEast = cameraBounds.northeast;
-        LatLng southwest = cameraBounds.southwest;
-        
-    }
+
 
 
     private void findCycleLanesOnRoute() throws JSONException, IOException {
@@ -644,7 +664,6 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         laneObjectID=new ArrayList<Integer>();
         routeLaneContactPoint=new ArrayList<>();
-        refinedLaneList=new ArrayList<>();
 
         for(int i=0;i<routeCoordinates.size();i++){
 
