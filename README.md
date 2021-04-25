@@ -30,3 +30,5 @@ How to run the application:
 5. Connect phone to pc, ensuring it comes up in android studio. If not use AVD manager troubleshooter to find device
 6. run application and it will install on device.
 7. note this application only works if user location is on so be sure to allow the app to get your location.
+
+File contains a signed APK but had trouble installing on phone
