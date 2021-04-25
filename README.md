@@ -1,4 +1,4 @@
-# Cycle-Lanes
+# Lane-Locator
 Team Project Submission for Group 19
 Adam Regan x19401956
 Conor FitzGerald x19444092
